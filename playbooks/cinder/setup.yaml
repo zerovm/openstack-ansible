@@ -1,0 +1,75 @@
+---
+- hosts: controller
+  user: vagrant
+  sudo: True
+  gather_facts: True
+  vars_files:
+    - ../global_vars.yaml
+
+  tasks:
+  - name: ensure cinder is installed
+    action: apt pkg=$item
+    with_items:
+      - cinder-api
+      - cinder-scheduler
+      - cinder-volume
+      - python-cinderclient
+      - open-iscsi
+      - tgt
+
+
+  - name: ensure cinder database is present
+    action: mysql_db name=cinder
+    notify:
+      - populate cinder database
+      - restart cinder-volume
+      - restart cinder-api
+      - restart cinder-scheduler
+
+  - name: ensure cinder database user is present
+    action: mysql_user name=cinder host=% password=${cinder_db_password} priv=cinder.*:ALL
+
+  - name: ensure cinder api-paste.ini file is up to date
+    action: template src=templates/api-paste.ini dest=/etc/cinder/api-paste.ini owner=cinder group=cinder mode=0644
+    notify:
+    - restart cinder-volume
+    - restart cinder-api
+    - restart cinder-scheduler
+
+  - name: ensure cinder.conf file is up to date
+    action: template src=templates/cinder.conf dest=/etc/cinder/cinder.conf owner=cinder group=cinder mode=0644
+    notify:
+    - restart cinder-volume
+    - restart cinder-api
+    - restart cinder-scheduler
+
+  - name: ensure temporary volume image exists
+    action: command dd if=/dev/zero of=/tmp/cinder-volumes bs=1 count=0 seek=2G creates=/tmp/cinder-volumes
+    notify:
+    - add loop device
+    - create physical volume
+    - create volume group
+
+  handlers:
+
+  - name: populate cinder database
+    action: command cinder-manage db sync
+
+  - name: restart cinder-volume
+    action: service name=cinder-volume state=restarted
+
+  - name: restart cinder-api
+    action: service name=cinder-api state=restarted
+
+  - name: restart cinder-scheduler
+    action: service name=cinder-scheduler state=restarted
+
+  - name: add loop device
+    action: command losetup /dev/loop2 /tmp/cinder-volumes
+
+  - name: create physical volume
+    action: command pvcreate /dev/loop2
+  
+  - name: create volume group
+    action: command vgcreate cinder-volumes /dev/loop2
+

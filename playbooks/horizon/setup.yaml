@@ -1,0 +1,24 @@
+---
+- hosts: controller
+  user: vagrant
+  sudo: True
+  gather_facts: True
+  vars_files:
+    - ../global_vars.yaml
+
+  tasks:
+  - name: ensure horizon is installed
+    action: apt pkg=$item
+    with_items:
+      - openstack-dashboard
+      - memcached
+
+  - name: install local settings
+    action: template src=templates/local_settings.py dest=/etc/openstack-dashboard/local_settings.py owner=root group=root mode=0644
+
+  handlers:
+  - name: restart memcached
+    action: service name=memcached state=restarted
+
+  - name: restart apache
+    action: service name=apache2 state=restarted

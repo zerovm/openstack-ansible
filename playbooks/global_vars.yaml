@@ -1,0 +1,12 @@
+---
+controller_public_ip: 192.168.206.130
+controller_private_ip: 192.168.100.130
+mysqlserver: $controller_private_ip
+glance_db_password: ataglance
+nova_db_password: supernova
+default_admin_password: openstack
+flat_interface: eth2
+keystone_db_password: keysarelocked
+ntpserver: $controller_private_ip
+admin_token: 012345SECRET99TOKEN012345
+cinder_db_password: cinderpass

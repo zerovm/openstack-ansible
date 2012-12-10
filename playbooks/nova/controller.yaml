@@ -1,0 +1,66 @@
+---
+- hosts: controller
+  user: vagrant
+  sudo: True
+  vars_files:
+    - ../global_vars.yaml
+
+  tasks:
+
+  - name: ensure nova database is present
+    action: mysql_db name=nova
+    notify:
+    - create network
+
+  - name: ensure nova database user is present
+    action: mysql_user name=nova host=% password=$nova_db_password priv=nova.*:ALL
+
+  - name: ensure flat interface is in promiscuous mode
+    action: command /sbin/ip link set ${flat_interface} promisc on
+
+  - name: ensure nova packages are installed
+    action: apt pkg=$item
+    with_items:
+      - rabbitmq-server
+      - nova-novncproxy
+      - nova-api
+      - nova-ajax-console-proxy
+      - nova-cert
+      - nova-consoleauth
+      - nova-doc
+      - nova-scheduler
+      - nova-network
+      - bridge-utils
+
+  - name: ensure nova.conf file is present
+    action: template src=templates/nova.conf dest=/etc/nova/nova.conf owner=nova group=nova mode=0640
+
+  - name: ensure services are stopped
+    action: service name=$item state=stopped
+    with_items:
+      - nova-api
+      - nova-network
+      - nova-scheduler
+      - nova-cert
+      - nova-novncproxy
+      - nova-consoleauth
+
+  - name: ensure api-paste.ini is present
+    action: template src=templates/api-paste.ini dest=/etc/nova/api-paste.ini owner=nova group=nova mode=0600
+
+  - name: ensure database is synced
+    action: command /usr/bin/nova-manage db sync
+  - name: ensure services are started
+    action: service name=$item state=started
+    with_items:
+      - nova-novncproxy
+      - nova-api
+      - nova-cert
+      - nova-consoleauth
+      - nova-scheduler
+      - nova-network
+      - rabbitmq-server
+      
+  handlers:
+  - name: create network
+    action: shell /usr/bin/nova-manage network create private --fixed_range_v4=192.168.100.0/24 --bridge=br100 --bridge_interface=${flat_interface} --num_networks=1 --network_size=256 || true

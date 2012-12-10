@@ -1,0 +1,13 @@
+---
+- name: ensure apt repo is up to date
+  action: apt update-cache=yes
+
+- name: add cloud archive repo
+  action: copy src=../prereq/files/cloud-archive.list dest=/etc/apt/sources.list.d/cloud-archive.list owner=root group=root mode=0644
+
+- name: add cloud keyring
+  action: apt pkg=ubuntu-cloud-keyring
+
+- name: ensure apt repo is up to date
+  action: apt update-cache=yes
+
